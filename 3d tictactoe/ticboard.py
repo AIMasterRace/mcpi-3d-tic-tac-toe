@@ -134,7 +134,7 @@ class mc_board:
 
 
     def checkwinner(self,x,y,z):
-        return traverse_directions(x,y,z, self._find_possible_wins(x,y,z))
+        return self.traverse_directions(x,y,z, self._find_possible_wins(x,y,z))
 
     
 
