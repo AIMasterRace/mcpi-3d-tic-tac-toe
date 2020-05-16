@@ -72,7 +72,20 @@ class mc_board:
         self.source['y'],
         self.source['z'] = self._world.player.getPos()
 
-    
+    def draw(self):
+        '''wrapper for updateworld()'''
+        self.updateworld()
+
+    def undraw(self):
+        '''redraw area with air'''
+        source = self.source
+        for y, layer in enumerate(self._board):
+            for z, row in enumerate(layer):
+                for x, val in enumerate(row):
+                    self._world.setBlock(x + source['x'],
+                                         y + source['y'],
+                                         z + source['z'],
+                                         0)
     def updateworld(self):
         source = self.source
         for y, layer in enumerate(self._board):
