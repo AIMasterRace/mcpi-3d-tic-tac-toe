@@ -1,6 +1,0 @@
-[run]
-branch = true
-source = mcpi
-
-[report]
-show_missing = true
