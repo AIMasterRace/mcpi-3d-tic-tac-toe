@@ -24,9 +24,30 @@ class mc_board:
             self.source['x'] = 0 
             self.source['y'] = 0 
             self.source['z'] = 0 
-        
-        
 
+        self.generateFrame() #Clears area and generates frame
+        
+    def addTuples(self,tuple1,tuple2):
+        return ((i + i1) for i, i1 in zip(tuple1,tuple2))
+    
+    def generateFrame(self):
+        mcworld = self._world
+        #Makes a rectangle around the play area
+        mcworld.setBlocks(*(self.addTuples((0,0,0), (-1,-1,-1))),       
+            *(self.addTuples(self._dimensions, (1,1,1))), 42) 
+        
+        #Make a hole in the x-axis
+        mcworld.setBlocks(*(self.addTuples((0,0,0), (-1,0,0))),       
+            *(self.addTuples(self._dimensions, (1,0,0))), 0) 
+
+        #Make a hole in the y-axis
+        mcworld.setBlocks(*(self.addTuples((0,0,0), (0,-1,0))),       
+            *(self.addTuples(self._dimensions, (0,1,0))), 0) 
+
+        #Make a hole in the z-axis
+        mcworld.setBlocks(*(self.addTuples((0,0,0), (0,0,-1))),       
+            *(self.addTuples(self._dimensions, (0,0,1))), 0) 
+        
 
     def __iter__(self):
 
@@ -93,16 +114,16 @@ class mc_board:
         '''Checks minecraft world and updates the internal array(ignores non air and player blocks)'''
         updatedblock = None
         for x,y,z,val in self._enumiter():
-            block = self._world.getBlock(x,y,z)
+            block = self._world.getBlock(*self.translate_cords(x,y,z))
             if block != self._blocks[val] and block in self._blocks.values():
                 if updatedblock:
                     raise Exception(f'World has more than one different block at {self.translate_cords(x,y,z)}')
                 updatedblock = (x,y,z,block)
-
-        if updatedblock[3] != self.getblockturn():
-            self[x,y,z] = updatedblock[3]
+        x,y,z = updatedblock[:3]
+        if updatedblock[3] == self.getblockturn():
+            self[x,y,z] = self._turn
             self.switchturn()
-            self.checkwinner()
+            self.checkwinner(x,y,z)
 
         else:
             raise Exception(f'Incorrect turn at {self.translate_cords(x,y,z)}')
@@ -145,47 +166,42 @@ class mc_board:
     
     def translate_cords(self,x,y,z):
         '''Translates matrix cords into minecraft cords'''
+        source = self.source
         return (x + source['x'], y + source['y'], z + source['z'])
 
-    def _find_possible_wins(self,x,y,z):
-        playersymbol = self[x,y,z]
-        def validate_direction(direction):
-            if self[ ( (i + i1) for i,i1 in zip((x,y,z), direction)) ]  == playersymbol:
+
+    def traverse_directions(self,x,y,z):
+        def wallhit(x,y,z,direction):
+            nextIterX = x + direction[0]
+            nextIterY = y + direction[1]
+            nextIterZ = z + direction[2]
+            if nextIterX < 0 or nextIterX >= self._dimensions[0]:
+                return True
+            if nextIterY < 0 or nextIterY >= self._dimensions[1]:
+                return True
+            if nextIterZ < 0 or nextIterZ >= self._dimensions[2]:
                 return True
             return False
-        valid_directions = []
-        currentdirections = []
-        for direction1,direction2 in self.directions:
-            if validate_direction(direction1):
-                currentdirections.append(direction1)
-
-            if validate_direction(direction2):
-                currentdirections.append(direction2)
-
-            valid_directions.append(tuple(currentdirections))
-        return valid_directions
+                        
 
 
-
-    def traverse_directions(self,x,y,z,directions):
-        def traverse_direction(direction,playersymbol):
-            nonlocal x,y,z
+        def traverse_direction(x,y,z,direction):
+            playersymbol = self[x,y,z]
+            if wallhit(x,y,z,direction):
+                return 0
             count = -1
             cursymbol = self[ ( (i + i1) for i,i1 in zip((x,y,z), direction)) ]
-            while count < self.winlen and cursymbol == playersymbol:
+            while (count < self.winlen) and (cursymbol == playersymbol) and (wallhit(x,y,z,direction) == False):
                 count += 1
                 x,y,z = (i + i1 for i,i1 in zip((x,y,z), direction))
                 cursymbol = self[x,y,z]
             return count
         
+
         playersymbol = self[x,y,z] 
         for direction in directions:
-            if len(direction) == 1:
-                if traverse_direction(direction[0],playersymbol) > self.winlen:
-                    return playersymbol
-            elif len(direction) == 2:
-                if traverse_direction(direction[0],playersymbol) + traverse_direction(direction[1],playersymbol) > self.winlen:
-                    return playersymbol
+            if traverse_direction(x,y,z,direction[0]) + traverse_direction(x,y,z,direction[1]) >= self.winlen:
+                return playersymbol
         return False
             
 
@@ -194,7 +210,7 @@ class mc_board:
 
     def checkwinner(self,x,y,z):
         '''Private method. Sets self.winner to winner'''
-        self.winner = self.traverse_directions(x,y,z, self._find_possible_wins(x,y,z))
+        self.winner = self.traverse_directions(x,y,z)
 
     def getwinner(self):
         return self.winner
